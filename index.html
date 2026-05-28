@@ -177,10 +177,54 @@ function smoothPose(newLM){
   for(let i=0;i<newLM.length;i++){const a=SMOOTH_A;const s=smoothLM[i],n=newLM[i];s.x=s.x*(1-a)+n.x*a;s.y=s.y*(1-a)+n.y*a;s.z=s.z*(1-a)+n.z*a;s.visibility=n.visibility}
 }
 
+// ===== 粒子特效系统 =====
+let particles=[];
+function createExplosion(x,y,color){
+  const count=15+Math.floor(Math.random()*10);
+  for(let i=0;i<count;i++){
+    const angle=Math.random()*Math.PI*2;
+    const speed=2+Math.random()*5;
+    particles.push({
+      x,y,vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed-2,
+      life:1,decay:0.02+Math.random()*0.04,
+      size:3+Math.random()*6,color,rot:Math.random()*Math.PI*2,rSp:(Math.random()-0.5)*0.15
+    })
+  }
+}
+function updateParticles(){
+  for(let i=particles.length-1;i>=0;i--){
+    const p=particles[i];
+    p.x+=p.vx;p.y+=p.vy;p.vy+=0.15; // 重力
+    p.life-=p.decay;p.rot+=p.rSp;
+    if(p.life<=0)particles.splice(i,1)
+  }
+}
+function drawParticles(){
+  particles.forEach(p=>{
+    ctx.save();ctx.globalAlpha=p.life;
+    ctx.translate(p.x,p.y);ctx.rotate(p.rot);
+    ctx.fillStyle=p.color;ctx.beginPath();
+    // 画小星星
+    const s=p.size;
+    for(let i=0;i<5;i++){
+      const a=i*Math.PI*2/5-Math.PI/2,r=i%2===0?s:s*0.4;
+      i===0?ctx.moveTo(Math.cos(a)*r,Math.sin(a)*r):ctx.lineTo(Math.cos(a)*r,Math.sin(a)*r)
+    }
+    ctx.closePath();ctx.fill();
+    // 中心光点
+    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(0,0,s*0.35,0,Math.PI*2);ctx.fill();
+    ctx.restore()
+  })
+}
+
+// ===== 手部轨迹（魔法拖尾）=====
+const TRAIL_LEN=10;
+let handTrails={left:[],right:[]};
+
 // ===== 校准 & 拖动 =====
 let calibX=0,calibY=0,calibActive=false;
 let calibStableFrames=0,calibDetected=false;
-const CALIB_STABLE_NEED=45; // ~1.5秒稳定
+const CALIB_STABLE_NEED=45;
 
 // 装扮自定义偏移（单指拖动）
 let itemOffsets={}; // id -> {ox, oy}
@@ -477,21 +521,63 @@ function drawDressupItem(item,img){
 }
 
 // ===== 手腕指示 =====
+function getHandCenter(side){
+  // side: 'left'→wrist15+index19, 'right'→wrist16+index20
+  const wi=side==='left'?15:16,ii=side==='left'?19:20;
+  const wrist=getLM(wi),finger=getLM(ii);
+  if(!wrist||!finger)return null;
+  if(poseLandmarks[wi].visibility<0.3&&poseLandmarks[ii].visibility<0.3)return null;
+  if(poseLandmarks[wi].visibility<0.3)return finger;
+  if(poseLandmarks[ii].visibility<0.3)return wrist;
+  return{x:(wrist.x+finger.x)/2,y:(wrist.y+finger.y)/2}
+}
+
 function drawWrists(){
   const t=performance.now()*0.001;
-  [19,20].forEach(i=>{
-    const pt=getLM(i);if(!pt||poseLandmarks[i].visibility<0.3)return;
-    ctx.save();ctx.globalAlpha=0.55;
-    // 大光晕 + 脉冲动画
-    const pulse=1+Math.sin(t*3)*0.15,pulseR=40*pulse;
-    const g=ctx.createRadialGradient(pt.x,pt.y,6,pt.x,pt.y,pulseR);
-    g.addColorStop(0,'rgba(255,255,120,0.9)');g.addColorStop(0.4,'rgba(255,220,60,0.4)');g.addColorStop(1,'rgba(255,150,0,0)');
-    ctx.fillStyle=g;ctx.beginPath();ctx.arc(pt.x,pt.y,pulseR,0,Math.PI*2);ctx.fill();
-    // 内圈
-    ctx.fillStyle='#ffd700';ctx.beginPath();ctx.arc(pt.x,pt.y,12,0,Math.PI*2);ctx.fill();
-    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(pt.x,pt.y,5,0,Math.PI*2);ctx.fill();
-    // 外环
-    ctx.strokeStyle='rgba(255,215,0,0.5)';ctx.lineWidth=3;ctx.beginPath();ctx.arc(pt.x,pt.y,22,0,Math.PI*2);ctx.stroke();
+  ['left','right'].forEach(side=>{
+    const pt=getHandCenter(side);if(!pt)return;
+    // 记录轨迹
+    const trail=handTrails[side];
+    trail.push({x:pt.x,y:pt.y,t});if(trail.length>TRAIL_LEN)trail.shift();
+
+    ctx.save();
+    // 魔法拖尾（从旧到新，透明度递增）
+    if(trail.length>1){
+      for(let i=1;i<trail.length;i++){
+        const a=i/trail.length*0.35,b=trail[i-1],c=trail[i];
+        ctx.globalAlpha=a;ctx.strokeStyle='#ffd700';ctx.lineWidth=3+(i/trail.length)*5;
+        ctx.lineCap='round';ctx.beginPath();ctx.moveTo(b.x,b.y);ctx.lineTo(c.x,c.y);ctx.stroke();
+        // 外发光拖尾
+        ctx.globalAlpha=a*0.5;ctx.strokeStyle='rgba(255,200,100,0.4)';ctx.lineWidth=8+(i/trail.length)*8;
+        ctx.beginPath();ctx.moveTo(b.x,b.y);ctx.lineTo(c.x,c.y);ctx.stroke()
+      }
+    }
+
+    // 魔法光球主体
+    ctx.globalAlpha=0.7;
+    const pulse=1+Math.sin(t*4+side.length)*0.2;
+    const g=ctx.createRadialGradient(pt.x,pt.y,4,pt.x,pt.y,38*pulse);
+    g.addColorStop(0,'rgba(255,255,255,0.95)');
+    g.addColorStop(0.15,'rgba(255,240,180,0.85)');
+    g.addColorStop(0.4,'rgba(255,180,60,0.5)');
+    g.addColorStop(0.7,'rgba(255,120,30,0.15)');
+    g.addColorStop(1,'rgba(255,80,20,0)');
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(pt.x,pt.y,38*pulse,0,Math.PI*2);ctx.fill();
+
+    // 内核高光
+    ctx.globalAlpha=0.9;
+    const ig=ctx.createRadialGradient(pt.x-2,pt.y-2,1,pt.x,pt.y,14);
+    ig.addColorStop(0,'#fff');ig.addColorStop(0.4,'rgba(255,255,200,0.8)');ig.addColorStop(1,'rgba(255,200,50,0)');
+    ctx.fillStyle=ig;ctx.beginPath();ctx.arc(pt.x,pt.y,14,0,Math.PI*2);ctx.fill();
+
+    // 旋转光点（环绕魔法球的小光点）
+    ctx.globalAlpha=0.6;
+    for(let j=0;j<3;j++){
+      const ra=j*Math.PI*2/3+t*2,dx=Math.cos(ra)*20,dy=Math.sin(ra)*20;
+      const sg=ctx.createRadialGradient(pt.x+dx,pt.y+dy,0,pt.x+dx,pt.y+dy,5);
+      sg.addColorStop(0,'#fff');sg.addColorStop(1,'rgba(255,200,100,0)');
+      ctx.fillStyle=sg;ctx.beginPath();ctx.arc(pt.x+dx,pt.y+dy,5,0,Math.PI*2);ctx.fill()
+    }
     ctx.restore()
   })
 }
@@ -528,6 +614,7 @@ function renderLoop(){
     default:drawGuide('举起手选择游戏吧！')
   }
 
+  updateParticles();drawParticles();
   drawWrists();requestAnimationFrame(renderLoop)
 }
 
@@ -552,7 +639,7 @@ function startMath(){
 }
 function updateMath(){
   mathSpawnTimer++;
-  const every=Math.max(12,50-mathObjects.length*4);
+  const every=Math.max(10,50-mathObjects.length*4);
   if(mathSpawnTimer>=every&&mathObjects.length<10){mathSpawnTimer=0;
     const isT=mathCaught<mathTarget.count&&Math.random()<0.5;
     const t=isT?mathTarget.type:(Math.random()<0.5?'star':'square');
@@ -560,7 +647,14 @@ function updateMath(){
   }
   const caught=[];
   for(let i=mathObjects.length-1;i>=0;i--){const o=mathObjects[i];o.y+=o.speed;o.rot+=o.rSp;if(o.y>canvasH+80){mathObjects.splice(i,1);continue}
-    if(o.type===mathTarget.type){let h=false;[19,20].forEach(wi=>{if(h)return;const w=getLM(wi);if(!w||poseLandmarks[wi].visibility<0.3)return;if(Math.hypot(w.x-o.x,w.y-o.y)<72+o.size*0.7){h=true;caught.push(i)}})}
+    if(o.type===mathTarget.type){let h=false;
+      // 用手部中心（手腕+指尖中点）做碰撞判定
+      ['left','right'].forEach(side=>{if(h)return;
+        const c=getHandCenter(side);if(!c)return;
+        const hitR=(72+o.size*0.7)*1.5; // 1.5倍宽容碰撞箱
+        if(Math.hypot(c.x-o.x,c.y-o.y)<hitR){h=true;caught.push(i);createExplosion(o.x,o.y,o.type==='star'?'#ffd700':'#7ec8e3')}
+      })
+    }
   }
   caught.sort((a,b)=>b-a);caught.forEach(i=>{mathObjects.splice(i,1);mathCaught++;sfxCatch()});
   const d=Math.min(mathCaught,mathTarget.count);hudScore.textContent=`${d} / ${mathTarget.count}`;progressBar.style.width=(d/mathTarget.count*100)+'%';
@@ -587,7 +681,7 @@ function startEng(){
 function updateEng(){
   if(!isPoseReady)return;
   const cx=[canvasW*0.28,canvasW*0.72],cy=canvasH*0.38,r=Math.min(canvasW*0.2,canvasH*0.18);
-  let hi=-1;[19,20].forEach(wi=>{if(hi>=0)return;const w=getLM(wi);if(!w||poseLandmarks[wi].visibility<0.3)return;for(let i=0;i<2;i++){if(Math.hypot(w.x-cx[i],w.y-cy)<r){hi=i;return}}});
+  let hi=-1;['left','right'].forEach(side=>{if(hi>=0)return;const w=getHandCenter(side);if(!w)return;for(let i=0;i<2;i++){if(Math.hypot(w.x-cx[i],w.y-cy)<r){hi=i;return}}});
   if(hi===engHoverTarget&&hi>=0)engHoverFrames++;else{engHoverTarget=hi;engHoverFrames=hi>=0?1:0}
   if(engHoverTarget===engCorrectIdx){progressBar.style.width=(engHoverFrames/HOVER_NEED*100)+'%'}
   else if(engHoverTarget>=0&&engHoverFrames>30){sfxWrong();engHoverTarget=-1;engHoverFrames=0;progressBar.style.width='0%'}
