@@ -1,0 +1,32 @@
+[
+  {
+    "id": "castle",
+    "name": "梦幻城堡",
+    "nameEn": "Castle",
+    "src": "assets/backgrounds/castle.jpg"
+  },
+  {
+    "id": "beach",
+    "name": "阳光海边",
+    "nameEn": "Beach",
+    "src": "assets/backgrounds/beach.jpg"
+  },
+  {
+    "id": "garden",
+    "name": "秘密花园",
+    "nameEn": "Garden",
+    "src": "assets/backgrounds/garden.jpg"
+  },
+  {
+    "id": "forest",
+    "name": "魔法森林",
+    "nameEn": "Forest",
+    "src": "assets/backgrounds/forest.jpg"
+  },
+  {
+    "id": "starry",
+    "name": "星空夜景",
+    "nameEn": "Starry Night",
+    "src": "assets/backgrounds/starry.jpg"
+  }
+]

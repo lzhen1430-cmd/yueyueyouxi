@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no,viewport-fit=cover"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<title>约约游戏 - AR体感教育</title>
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;font-family:'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;
+  background:#1a0a2e;color:#fff;-webkit-tap-highlight-color:transparent;user-select:none;touch-action:manipulation}
+#app{width:100%;height:100%;position:relative;overflow:hidden}
+.hidden{display:none!important}
+
+#loading-screen{position:fixed;inset:0;z-index:1000;background:linear-gradient(135deg,#2d1b4e,#1a0a2e,#0d1b3e);
+  display:flex;align-items:center;justify-content:center;flex-direction:column;gap:20px}
+.loading-title{font-size:36px;font-weight:800;letter-spacing:4px;color:#f8e3ff;text-shadow:0 0 30px rgba(200,150,255,0.5)}
+.loading-desc{font-size:16px;color:#c9b8e8;text-align:center;padding:0 30px}
+.btn-start{padding:18px 60px;border:3px solid rgba(200,150,255,0.6);border-radius:50px;
+  background:linear-gradient(135deg,rgba(140,80,220,0.5),rgba(220,120,180,0.5));
+  color:#fff;font-size:24px;font-weight:800;cursor:pointer;letter-spacing:4px;
+  box-shadow:0 8px 40px rgba(180,100,255,0.3);animation:btn-glow 2s ease-in-out infinite}
+.btn-start:active{transform:scale(0.93)}
+@keyframes btn-glow{0%,100%{box-shadow:0 8px 40px rgba(180,100,255,0.3)}50%{box-shadow:0 8px 60px rgba(220,150,255,0.6)}}
+
+#error-screen{position:fixed;inset:0;z-index:1001;background:linear-gradient(135deg,#2d1b4e,#1a0a2e);
+  display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px}
+.error-icon{font-size:60px}
+.error-text{font-size:20px;color:#f8e3ff;text-align:center;padding:0 30px;line-height:1.6}
+
+#game-screen{width:100%;height:100%;position:relative;background:#000}
+#game-canvas{position:absolute;top:0;left:0;width:100%;height:100%;z-index:2}
+#input-video{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;opacity:0;z-index:1}
+
+#ui-layer{position:absolute;inset:0;z-index:10;pointer-events:none}
+#ui-layer>*{pointer-events:auto}
+
+#hud{position:absolute;top:0;left:0;right:0;padding:12px 16px;display:flex;justify-content:space-between;align-items:flex-start}
+#hud-score{font-size:28px;font-weight:800;color:#ffd700;text-shadow:0 0 20px rgba(255,215,0,0.5)}
+#hud-instruction{font-size:16px;font-weight:700;color:#fff;text-align:center;
+  background:rgba(0,0,0,0.5);padding:6px 14px;border-radius:16px;max-width:65%}
+
+#bottom-bar{position:absolute;bottom:0;left:0;right:0;z-index:20;padding:8px 12px;
+  padding-bottom:max(10px,env(safe-area-inset-bottom));
+  background:linear-gradient(0deg,rgba(0,0,0,0.7) 0%,transparent 100%)}
+
+.mode-tabs{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.mode-btn{flex:1;min-width:70px;max-width:120px;padding:10px 6px;border:2px solid rgba(255,255,255,0.2);
+  border-radius:16px;background:rgba(255,255,255,0.08);backdrop-filter:blur(10px);
+  color:#fff;cursor:pointer;text-align:center;transition:all 0.3s;font-size:12px;font-weight:600}
+.mode-btn .icon{font-size:28px;display:block;margin-bottom:2px}
+.mode-btn.active{border-color:#ffd700;background:rgba(255,215,0,0.15);box-shadow:0 4px 20px rgba(255,215,0,0.3)}
+
+#progress-wrap{width:100%;height:10px;background:rgba(255,255,255,0.1);border-radius:5px;margin-top:8px;overflow:hidden}
+#progress-bar{height:100%;background:linear-gradient(90deg,#ffd700,#ff6b8a);border-radius:5px;transition:width 0.3s;width:0%}
+
+#select-screen{position:absolute;inset:0;z-index:15;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:20px;
+  background:rgba(0,0,0,0.55);backdrop-filter:blur(4px)}
+#select-screen .title{font-size:28px;font-weight:800;color:#f8e3ff;text-shadow:0 0 20px rgba(200,150,255,0.4)}
+#select-buttons{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;padding:0 20px}
+.select-btn{width:120px;padding:24px 14px;border:3px solid rgba(255,255,255,0.3);border-radius:20px;
+  background:rgba(255,255,255,0.1);backdrop-filter:blur(10px);color:#fff;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;gap:6px;transition:all 0.3s}
+.select-btn .icon{font-size:44px}.select-btn .label{font-size:16px;font-weight:700}.select-btn .desc{font-size:11px;opacity:0.7}
+.select-btn:active{transform:scale(0.9);background:rgba(255,255,255,0.25)}
+
+#dressup-selector{position:absolute;bottom:120px;left:0;right:0;z-index:16;display:flex;gap:8px;
+  overflow-x:auto;padding:8px 12px;scrollbar-width:none}
+#dressup-selector::-webkit-scrollbar{display:none}
+.dressup-item-btn{flex-shrink:0;width:56px;height:56px;border:2px solid rgba(255,255,255,0.3);
+  border-radius:12px;background:rgba(255,255,255,0.1);cursor:pointer;display:flex;
+  align-items:center;justify-content:center;transition:all 0.3s;overflow:hidden}
+.dressup-item-btn img{max-width:80%;max-height:80%;object-fit:contain}
+.dressup-item-btn.worn{border-color:#ffd700;background:rgba(255,215,0,0.2);box-shadow:0 0 12px rgba(255,215,0,0.4)}
+.bg-thumb.active{border-color:#ffd700!important;box-shadow:0 0 12px rgba(255,215,0,0.5)}
+.bg-thumb:hover{border-color:rgba(255,255,255,0.7)}
+
+#dressup-toast{position:absolute;top:40%;left:50%;transform:translate(-50%,-50%);z-index:18;
+  font-size:22px;font-weight:800;color:#ffd700;text-shadow:0 0 30px rgba(255,215,0,0.6);pointer-events:none;
+  text-align:center;animation:toast-in 0.5s ease-out}
+@keyframes toast-in{from{opacity:0;transform:translate(-50%,-50%) scale(0.5)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+.dressup-toast-countdown{font-size:48px;display:block}
+
+@media(min-width:768px){
+  .mode-btn{max-width:130px;padding:14px 8px;font-size:14px}
+  .mode-btn .icon{font-size:34px}
+  .select-btn{width:140px;padding:30px 16px}
+  .select-btn .icon{font-size:54px}
+  .select-btn .label{font-size:18px}
+  #dressup-selector{bottom:140px}
+  .dressup-item-btn{width:68px;height:68px}
+}
+</style>
+</head>
+<body>
+<div id="app">
+
+<div id="loading-screen">
+  <div class="loading-title">✨ 魔法体感乐园 ✨</div>
+  <div class="loading-desc">用身体玩游戏学英语数学<br>还能赢取AR魔法装扮哦~</div>
+  <button id="btn-start" class="btn-start">开始魔法</button>
+  <div style="font-size:13px;color:#999;margin-top:8px">点击后请允许使用摄像头</div>
+</div>
+
+<div id="error-screen" class="hidden">
+  <div class="error-icon">😢</div>
+  <div class="error-text" id="error-msg">出了点问题...</div>
+  <button id="btn-retry" class="btn-start" style="font-size:18px;padding:12px 40px">🔄 再试一次</button>
+</div>
+
+<div id="game-screen" class="hidden">
+  <video id="input-video" playsinline autoplay muted></video>
+  <canvas id="game-canvas"></canvas>
+  <div id="ui-layer">
+    <div id="hud">
+      <span id="hud-score"></span>
+      <span id="hud-instruction"></span>
+    </div>
+    <div id="select-screen" class="hidden">
+      <div class="title">选一个游戏吧！</div>
+      <div id="select-buttons">
+        <button class="select-btn" data-mode="math"><span class="icon">⭐</span><span class="label">数学数数</span><span class="desc">用手抓星星方块</span></button>
+        <button class="select-btn" data-mode="english"><span class="icon">🔤</span><span class="label">英语单词</span><span class="desc">碰正确的泡泡</span></button>
+        <button class="select-btn" data-mode="dressup"><span class="icon">👗</span><span class="label">自由换装</span><span class="desc">挑选喜欢的装扮</span></button>
+      </div>
+    </div>
+    <!-- 自动校准画面 -->
+    <div id="calib-screen" class="hidden" style="position:absolute;inset:0;z-index:16;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;background:rgba(0,0,0,0.4);backdrop-filter:blur(3px);pointer-events:auto">
+      <div style="font-size:24px;font-weight:800;color:#f8e3ff;text-shadow:0 0 15px rgba(200,150,255,0.4)">👆 手指对焦校准</div>
+      <div style="font-size:14px;color:#c9b8e8;text-align:center;padding:0 20px;line-height:1.5">伸出一根手指，对准画面中央<br><b style="color:#ffd700">金色圆圈靶心</b></div>
+      <div id="calib-status-text" style="font-size:18px;font-weight:700;color:#ffd700;text-align:center;min-height:28px;transition:all 0.3s">等待检测手指...</div>
+      <div style="font-size:13px;color:#999">偏移: X=<span id="calib-x-val">0</span> Y=<span id="calib-y-val">0</span></div>
+      <button id="btn-calib-ok" class="btn-start" style="font-size:17px;padding:10px 36px;opacity:0.5;transition:opacity 0.5s" disabled>🎯 确认校准</button>
+      <button id="btn-calib-skip" style="background:none;border:none;color:#999;font-size:13px;cursor:pointer;margin-top:4px;text-decoration:underline">跳过校准，直接开始</button>
+    </div>
+    <div id="dressup-selector" class="hidden"></div>
+    <div id="bg-selector" class="hidden" style="position:absolute;top:50px;right:8px;z-index:16;display:flex;flex-direction:column;gap:6px">
+      <div class="bg-thumb active" data-bg="" style="width:42px;height:42px;border:2px solid rgba(255,255,255,0.4);border-radius:10px;background:rgba(0,0,0,0.5);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:20px;transition:all 0.3s" title="无背景">🚫</div>
+    </div>
+    <div id="dressup-toast" class="hidden"><span class="dressup-toast-countdown" id="toast-countdown">5</span></div>
+    <div id="bottom-bar" class="hidden">
+      <div class="mode-tabs" id="mode-tabs">
+        <button class="mode-btn active" data-mode="math"><span class="icon">⭐</span>数学</button>
+        <button class="mode-btn" data-mode="english"><span class="icon">🔤</span>英语</button>
+        <button class="mode-btn" data-mode="dressup"><span class="icon">👗</span>换装</button>
+      </div>
+      <div id="progress-wrap"><div id="progress-bar"></div></div>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+
+<script>
+// ============================================================
+//  约约游戏 - AR体感教育 v4
+//  全Canvas渲染 + 真实装扮系统 + 姿态平滑
+// ============================================================
+
+const $ = id => document.getElementById(id);
+const loadingScreen=$('loading-screen'),errorScreen=$('error-screen'),errorMsg=$('error-msg');
+const gameScreen=$('game-screen'),inputVideo=$('input-video'),gameCanvas=$('game-canvas');
+const ctx=gameCanvas.getContext('2d'),hudScore=$('hud-score'),hudInstruction=$('hud-instruction');
+const selectScreen=$('select-screen'),bottomBar=$('bottom-bar'),progressBar=$('progress-bar');
+const dressupSelector=$('dressup-selector'),dressupToast=$('dressup-toast'),toastCountdown=$('toast-countdown');
+
+let cameraStream=null,pose=null,poseLandmarks=null,isPoseReady=false,canvasW=640,canvasH=480;
+let isStarting=false;
+
+// ===== 姿态平滑 =====
+const SMOOTH_A=0.35; let smoothLM=null;
+function smoothPose(newLM){
+  if(!smoothLM||smoothLM.length!==newLM.length){smoothLM=newLM.map(l=>({x:l.x,y:l.y,z:l.z,visibility:l.visibility}));return}
+  for(let i=0;i<newLM.length;i++){const a=SMOOTH_A;const s=smoothLM[i],n=newLM[i];s.x=s.x*(1-a)+n.x*a;s.y=s.y*(1-a)+n.y*a;s.z=s.z*(1-a)+n.z*a;s.visibility=n.visibility}
+}
+
+// ===== 校准 & 拖动 =====
+let calibX=0,calibY=0,calibActive=false;
+let calibStableFrames=0,calibDetected=false;
+const CALIB_STABLE_NEED=45; // ~1.5秒稳定
+
+// 装扮自定义偏移（单指拖动）
+let itemOffsets={}; // id -> {ox, oy}
+
+// 拖动状态
+let dragItemId=null,dragStartX=0,dragStartY=0,dragOrigOX=0,dragOrigOY=0;
+
+// ===== 游戏状态 =====
+const STATE={SELECT:0,MATH:1,ENGLISH:2,FREE_DRESS:3,REWARD:4,CALIB:5};
+let gameState=STATE.SELECT,gameActive=false;
+
+// 数学
+const MATH_TASKS=[{type:'star',count:3,emoji:'⭐',label:'3颗星星'},{type:'square',count:2,emoji:'🟦',label:'2个方块'},{type:'star',count:4,emoji:'⭐',label:'4颗星星'},{type:'square',count:3,emoji:'🟦',label:'3个方块'},{type:'star',count:2,emoji:'⭐',label:'2颗星星'}];
+let mathTaskIdx=0,mathTarget=MATH_TASKS[0],mathCaught=0,mathObjects=[],mathSpawnTimer=0;
+
+// 英语
+const WORDS=[{en:'CAT',cn:'猫',emoji:'🐱',color:'#ffb347'},{en:'DOG',cn:'狗',emoji:'🐶',color:'#87ceeb'},{en:'SUN',cn:'太阳',emoji:'☀️',color:'#ffd700'},{en:'FISH',cn:'鱼',emoji:'🐟',color:'#7ec8e3'},{en:'BIRD',cn:'鸟',emoji:'🐦',color:'#ff6b8a'},{en:'STAR',cn:'星星',emoji:'⭐',color:'#ffd700'},{en:'APPLE',cn:'苹果',emoji:'🍎',color:'#ff4444'},{en:'HAT',cn:'帽子',emoji:'🎩',color:'#b388eb'}];
+const DISTRACTORS=[{en:'CAR',cn:'车',emoji:'🚗',color:'#aaa'},{en:'BALL',cn:'球',emoji:'⚽',color:'#ddd'},{en:'HOUSE',cn:'房子',emoji:'🏠',color:'#c9a87c'},{en:'TREE',cn:'树',emoji:'🌳',color:'#90ee90'},{en:'BOOK',cn:'书',emoji:'📖',color:'#d4a574'}];
+let engWord=null,engCorrectIdx=0,engOptions=[],engHoverTarget=-1,engHoverFrames=0;
+const HOVER_NEED=90;
+
+// 换装
+let rewardTimer=0; const REWARD_DUR=300;
+
+// ===== 装扮系统 =====
+let dressupItems=[],dressupImgs={},wornItems={},itemsLoaded=false;
+
+// ===== 背景系统 =====
+let bgList=[],bgImgs={},currentBgId=null,bgLoaded=false;
+async function loadBackgrounds(){
+  try{
+    const r=await fetch('assets/backgrounds/backgrounds.json');
+    bgList=await r.json();
+    await Promise.all(bgList.map(bg=>new Promise(res=>{
+      const img=new Image();img.onload=()=>{bgImgs[bg.id]=img;res()};img.onerror=()=>res();img.src=bg.src;
+    })));
+    bgLoaded=true;renderBgSelector();
+  }catch(e){console.warn('Bg load fail:',e)}
+}
+function renderBgSelector(){
+  const sel=$('bg-selector');if(!sel)return;
+  sel.innerHTML='<div class="bg-thumb'+(currentBgId===null?' active':'')+'" data-bg="" style="width:42px;height:42px;border:2px solid rgba(255,255,255,0.4);border-radius:10px;background:rgba(0,0,0,0.5);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;transition:all 0.3s" title="无背景">🚫</div>';
+  bgList.forEach(bg=>{
+    const d=document.createElement('div');
+    d.className='bg-thumb'+(bg.id===currentBgId?' active':'');
+    d.dataset.bg=bg.id;
+    d.title=bg.name;
+    d.style.cssText='width:42px;height:42px;border:2px solid rgba(255,255,255,0.4);border-radius:10px;cursor:pointer;overflow:hidden;transition:all 0.3s;background:rgba(0,0,0,0.3)';
+    const img=document.createElement('img');img.src=bg.src;img.style.cssText='width:100%;height:100%;object-fit:cover';
+    d.appendChild(img);
+    d.addEventListener('click',e=>{e.stopPropagation();currentBgId=currentBgId===bg.id?null:bg.id;renderBgSelector()});
+    sel.appendChild(d)
+  });
+  // "no bg" button
+  sel.querySelector('.bg-thumb[data-bg=""]').addEventListener('click',e=>{e.stopPropagation();currentBgId=null;renderBgSelector()})
+}
+function drawBackground(){
+  if(!currentBgId||!bgImgs[currentBgId])return;
+  const img=bgImgs[currentBgId],iw=img.width,ih=img.height;
+  const sc=Math.max(canvasW/iw,canvasH/ih),dw=iw*sc,dh=ih*sc,dx=(canvasW-dw)/2,dy=(canvasH-dh)/2;
+  ctx.save();ctx.globalAlpha=1;ctx.drawImage(img,dx,dy,dw,dh);
+  // 半透明遮罩让视频层融合
+  ctx.fillStyle='rgba(0,0,0,0.25)';ctx.fillRect(0,0,canvasW,canvasH);
+  ctx.restore()
+}
+
+// ===== 自动校准 =====
+function updateCalibration(){
+  if(!isPoseReady||!poseLandmarks)return;
+  const tx=canvasW/2,ty=canvasH*0.4;
+  // 找离靶心最近的食指
+  let bestW=null,bestD=Infinity;
+  [19,20].forEach(i=>{
+    const pt=getLM(i);if(!pt||poseLandmarks[i].visibility<0.3)return;
+    const d=Math.hypot(pt.x-tx,pt.y-ty);
+    if(d<bestD){bestD=d;bestW=pt}
+  });
+  if(!bestW){calibStableFrames=0;return}
+  const dx=bestW.x-tx,dy=bestW.y-ty;
+  $('calib-x-val').textContent=Math.round(-dx);
+  $('calib-y-val').textContent=Math.round(-dy);
+  if(bestD<80){
+    calibStableFrames++;
+    const pct=Math.floor(calibStableFrames/CALIB_STABLE_NEED*100);
+    if(!calibDetected&&calibStableFrames>=CALIB_STABLE_NEED){
+      calibDetected=true;calibX=Math.round(-dx);calibY=Math.round(-dy);
+      $('calib-status-text').textContent='✅ 已自动校准! 偏差: X='+calibX+' Y='+calibY;
+      $('calib-status-text').style.color='#0f0';
+      const btn=$('btn-calib-ok');btn.disabled=false;btn.style.opacity='1';
+    }else if(!calibDetected){
+      $('calib-status-text').textContent='对准中... 保持不动 '+pct+'%';
+      $('calib-status-text').style.color='#ffd700';
+    }
+  }else{
+    calibStableFrames=0;calibDetected=false;
+    if(bestD<200)$('calib-status-text').textContent='手指靠近靶心... 距离:'+Math.round(bestD)+'px';
+    else $('calib-status-text').textContent='等待检测手指... 请伸出食指对准圆圈';
+    $('calib-status-text').style.color='#ffd700';
+  }
+}
+function drawCalibration(){
+  const tx=canvasW/2,ty=canvasH*0.4,tR=70;
+  ctx.save();
+  // 靶心圆圈
+  ctx.strokeStyle='#ffd700';ctx.lineWidth=5;ctx.setLineDash([10,5]);ctx.beginPath();ctx.arc(tx,ty,tR,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);
+  // 十字线
+  ctx.strokeStyle='rgba(255,215,0,0.4)';ctx.lineWidth=2;
+  ctx.beginPath();ctx.moveTo(tx-tR-30,ty);ctx.lineTo(tx+tR+30,ty);ctx.moveTo(tx,ty-tR-30);ctx.lineTo(tx,ty+tR+30);ctx.stroke();
+  // 中心点
+  ctx.fillStyle='#ffd700';ctx.beginPath();ctx.arc(tx,ty,8,0,Math.PI*2);ctx.fill();
+  // 手指检测位置
+  let bestW=null,bestD=Infinity;
+  [19,20].forEach(i=>{
+    const pt=getLM(i);if(!pt||poseLandmarks[i].visibility<0.3)return;
+    const d=Math.hypot(pt.x-tx,pt.y-ty);if(d<bestD){bestD=d;bestW=pt}
+  });
+  if(bestW){
+    const inTarget=bestD<tR;
+    // 连线
+    ctx.strokeStyle=inTarget?'#0f0':'#ff6b6b';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(tx,ty);ctx.lineTo(bestW.x,bestW.y);ctx.stroke();
+    // 手指光点
+    const g=ctx.createRadialGradient(bestW.x,bestW.y,5,bestW.x,bestW.y,35);
+    g.addColorStop(0,inTarget?'rgba(0,255,0,0.9)':'rgba(255,100,100,0.9)');
+    g.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(bestW.x,bestW.y,35,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(bestW.x,bestW.y,9,0,Math.PI*2);ctx.fill();
+  }
+  ctx.restore()
+}
+
+async function loadDressupItems(){
+  try{
+    const r=await fetch('assets/dressup/items.json');
+    dressupItems=await r.json();
+    // 合并 localStorage 中的自定义素材
+    try{
+      const custom=JSON.parse(localStorage.getItem('yueyue_custom_items')||'[]');
+      custom.forEach(c=>{
+        const exists=dressupItems.findIndex(i=>i.id===c.id);
+        const entry={id:c.id,name:c.name,nameEn:c.nameEn,type:c.type,src:c.dataUrl||c.src,anchor:c.anchor,scale:c.scale,offsetY:c.offsetY};
+        if(exists>=0)dressupItems[exists]=entry;else dressupItems.unshift(entry);
+      });
+    }catch(e){}
+    await Promise.all(dressupItems.map(item=>new Promise(res=>{
+      const img=new Image();img.onload=()=>{dressupImgs[item.id]=img;res()};img.onerror=()=>res();img.src=item.src;
+    })));
+    itemsLoaded=true;
+  }catch(e){console.warn('Dressup load fail:',e)}
+}
+
+function wearItem(item){
+  if(wornItems[item.type]&&wornItems[item.type].id===item.id){delete wornItems[item.type]}
+  else{wornItems[item.type]=item}
+  renderDressupSelector()
+}
+function isItemWorn(item){return wornItems[item.type]&&wornItems[item.type].id===item.id}
+
+function renderDressupSelector(){
+  if(!itemsLoaded||!dressupItems.length)return;
+  dressupSelector.innerHTML='';
+  dressupItems.forEach(item=>{
+    const btn=document.createElement('button');btn.className='dressup-item-btn'+(isItemWorn(item)?' worn':'');
+    const img=document.createElement('img');img.src=item.src;img.alt=item.name;btn.appendChild(img);
+    btn.title=item.name;btn.addEventListener('click',e=>{e.stopPropagation();wearItem(item)});
+    dressupSelector.appendChild(btn)
+  })
+}
+
+function rewardRandomItem(){
+  if(!itemsLoaded||!dressupItems.length)return null;
+  const unworn=dressupItems.filter(i=>!wornItems[i.type]);
+  const pool=unworn.length>0?unworn:dressupItems;
+  const item=pool[Math.floor(Math.random()*pool.length)];
+  wornItems[item.type]=item;return item
+}
+
+// ===== 音频 =====
+function beep(f,d,t='sine',v=0.12){try{const a=new(window.AudioContext||window.webkitAudioContext)(),o=a.createOscillator(),g=a.createGain();o.type=t;o.frequency.value=f;g.gain.setValueAtTime(v,a.currentTime);g.gain.exponentialRampToValueAtTime(0.001,a.currentTime+d);o.connect(g);g.connect(a.destination);o.start();o.stop(a.currentTime+d)}catch(e){}}
+function sfxCatch(){beep(880,0.12);setTimeout(()=>beep(1100,0.1),100)}
+function sfxWrong(){beep(180,0.25,'square',0.06)}
+function sfxSuccess(){beep(523,0.12);setTimeout(()=>beep(659,0.12),120);setTimeout(()=>beep(784,0.18),250)}
+
+// ===== 摄像头 =====
+async function setupCamera(){
+  const s=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:640},height:{ideal:480}},audio:false});
+  cameraStream=s;inputVideo.srcObject=s;await inputVideo.play();
+  if(!inputVideo.videoWidth)await new Promise(r=>inputVideo.addEventListener('loadedmetadata',r,{once:true}))
+}
+
+function resizeCanvas(){
+  const r=gameCanvas.parentElement.getBoundingClientRect(),dpr=window.devicePixelRatio||1;
+  const w=r.width*dpr,h=r.height*dpr;
+  if(gameCanvas.width!==w||gameCanvas.height!==h){gameCanvas.width=w;gameCanvas.height=h}
+  canvasW=gameCanvas.width;canvasH=gameCanvas.height
+}
+
+function vidToCanvas(vx,vy){
+  const vw=inputVideo.videoWidth||640,vh=inputVideo.videoHeight||480;
+  const sc=Math.max(canvasW/vw,canvasH/vh),ox=(canvasW-vw*sc)/2,oy=(canvasH-vh*sc)/2;
+  return{x:ox+vx*sc,y:oy+vy*sc,sc}
+}
+
+// ===== Pose =====
+async function setupPose(){
+  if(!window.Pose)throw new Error('Pose lib missing');
+  pose=new Pose({locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/pose/${f}`});
+  pose.setOptions({modelComplexity:1,smoothLandmarks:true,minDetectionConfidence:0.5,minTrackingConfidence:0.4});
+  pose.onResults(r=>{
+    if(r.poseLandmarks&&r.poseLandmarks.length>0){smoothPose(r.poseLandmarks);poseLandmarks=smoothLM;isPoseReady=true}
+    else{isPoseReady=false}
+  });
+  await pose.initialize()
+}
+
+let poseBusy=false,poseInterval=null;
+
+async function poseLoop(){
+  if(!pose||!gameActive||poseBusy)return;
+  poseBusy=true;
+  try{if(inputVideo.readyState>=2)await pose.send({image:inputVideo})}catch(e){}
+  poseBusy=false;
+}
+
+// ===== 关键点坐标（已镜像+校准偏移）=====
+function getLM(idx){
+  if(!poseLandmarks||!poseLandmarks[idx])return null;
+  const lm=poseLandmarks[idx],vx=lm.x*(inputVideo.videoWidth||640),vy=lm.y*(inputVideo.videoHeight||480);
+  const c=vidToCanvas(vx,vy);
+  c.x=canvasW-c.x+calibX;
+  c.y=c.y+calibY;
+  return c
+}
+
+function getHeadTop(){
+  const n=getLM(0),le=getLM(7),re=getLM(8);if(!n)return null;
+  const ex=(le&&re)?(le.x+re.x)/2:n.x,ed=(le&&re)?Math.abs(re.x-le.x):canvasW*0.12;
+  return{x:(n.x+ex)/2,y:n.y-ed*0.15,earDist:ed}
+}
+function getEyeCenter(){
+  const le=getLM(2),re=getLM(5),n=getLM(0);
+  if(le&&re)return{x:(le.x+re.x)/2,y:(le.y+re.y)/2,eyeDist:Math.abs(re.x-le.x)};
+  if(n)return{x:n.x,y:n.y-canvasH*0.03,eyeDist:canvasW*0.1};return null
+}
+function getNeckPt(){
+  const ls=getLM(11),rs=getLM(12);if(!ls||!rs)return null;
+  const mx=(ls.x+rs.x)/2,my=(ls.y+rs.y)/2,sw=Math.abs(rs.x-ls.x),n=getLM(0),ny=n?n.y:my-sw*0.3;
+  return{x:mx,y:(ny+my)/2,shoulderWidth:sw}
+}
+function getShoulderMid(){
+  const ls=getLM(11),rs=getLM(12);if(!ls||!rs)return null;
+  return{x:(ls.x+rs.x)/2,y:(ls.y+rs.y)/2,shoulderWidth:Math.abs(rs.x-ls.x)}
+}
+function getBodyRect(){
+  const ls=getLM(11),rs=getLM(12),lh=getLM(23),rh=getLM(24);
+  if(!ls||!rs)return null;
+  const ty=Math.min(ls.y,rs.y),tx=(ls.x+rs.x)/2,sw=Math.abs(rs.x-ls.x);
+  let by,bx,hw;
+  if(lh&&rh){by=Math.max(lh.y,rh.y);bx=(lh.x+rh.x)/2;hw=Math.abs(rh.x-lh.x)/2}
+  else{by=ty+sw*1.2;bx=tx;hw=sw*0.4}
+  return{topX:tx,topY:ty,botX:bx,botY:by,shoulderWidth:sw,hipWidth:hw*2}
+}
+
+// ===== 装扮渲染 =====
+function drawAllDressup(){
+  ['body','neck','face','head'].forEach(type=>{
+    const item=wornItems[type];if(!item)return;
+    const img=dressupImgs[item.id];if(!img)return;
+    drawDressupItem(item,img)
+  })
+}
+
+function drawDressupItem(item,img){
+  let anchor;
+  switch(item.anchor){
+    case'head':anchor=getHeadTop();break;
+    case'eyes':anchor=getEyeCenter();break;
+    case'neck':anchor=getNeckPt();break;
+    case'shoulders':anchor=getShoulderMid();break;
+    case'body':anchor=getBodyRect();break;
+    default:anchor=getHeadTop()
+  }
+  if(!anchor)return;
+  ctx.save();
+  const sc=item.scale||0.5;
+  const offs=itemOffsets[item.id]||{ox:0,oy:0};
+  if(item.anchor==='body'){
+    const bodyH=anchor.botY-anchor.topY,iW=anchor.shoulderWidth*sc*1.3,iH=bodyH*sc,offY=(item.offsetY||0)*bodyH;
+    ctx.drawImage(img,anchor.topX-iW/2+offs.ox,anchor.topY+offY+offs.oy,iW,iH)
+  }else{
+    const base=anchor.earDist||anchor.eyeDist||anchor.shoulderWidth||100,iW=img.width*sc*base/80,iH=img.height*sc*base/80,offY=(item.offsetY||0)*base;
+    ctx.drawImage(img,anchor.x-iW/2+offs.ox,anchor.y-iH/2+offY+offs.oy,iW,iH)
+  }
+  ctx.restore()
+}
+
+// ===== 手腕指示 =====
+function drawWrists(){
+  const t=performance.now()*0.001;
+  [19,20].forEach(i=>{
+    const pt=getLM(i);if(!pt||poseLandmarks[i].visibility<0.3)return;
+    ctx.save();ctx.globalAlpha=0.55;
+    // 大光晕 + 脉冲动画
+    const pulse=1+Math.sin(t*3)*0.15,pulseR=40*pulse;
+    const g=ctx.createRadialGradient(pt.x,pt.y,6,pt.x,pt.y,pulseR);
+    g.addColorStop(0,'rgba(255,255,120,0.9)');g.addColorStop(0.4,'rgba(255,220,60,0.4)');g.addColorStop(1,'rgba(255,150,0,0)');
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(pt.x,pt.y,pulseR,0,Math.PI*2);ctx.fill();
+    // 内圈
+    ctx.fillStyle='#ffd700';ctx.beginPath();ctx.arc(pt.x,pt.y,12,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(pt.x,pt.y,5,0,Math.PI*2);ctx.fill();
+    // 外环
+    ctx.strokeStyle='rgba(255,215,0,0.5)';ctx.lineWidth=3;ctx.beginPath();ctx.arc(pt.x,pt.y,22,0,Math.PI*2);ctx.stroke();
+    ctx.restore()
+  })
+}
+
+// ===== 主渲染循环 =====
+function renderLoop(){
+  if(!gameActive)return;
+  resizeCanvas();
+  ctx.clearRect(0,0,canvasW,canvasH);
+
+  // 背景层
+  if(currentBgId)drawBackground();
+
+  const vw=inputVideo.videoWidth||640,vh=inputVideo.videoHeight||480;
+  if(vw>0&&vh>0){
+    const sc=Math.max(canvasW/vw,canvasH/vh),dw=vw*sc,dh=vh*sc,dx=(canvasW-dw)/2,dy=(canvasH-dh)/2;
+    // 如果有背景，降低视频不透明度做融合效果
+    const alpha=currentBgId?0.55:1;
+    ctx.save();ctx.globalAlpha=alpha;ctx.translate(canvasW,0);ctx.scale(-1,1);
+    ctx.drawImage(inputVideo,canvasW-dx-dw,dy,dw,dh);
+    ctx.restore()
+  }
+
+  if(!isPoseReady||!poseLandmarks){drawNoPose();requestAnimationFrame(renderLoop);return}
+
+  drawAllDressup();
+
+  switch(gameState){
+    case STATE.MATH:updateMath();drawMath();break;
+    case STATE.ENGLISH:updateEng();drawEng();break;
+    case STATE.REWARD:updateReward();drawRewardHUD();break;
+    case STATE.FREE_DRESS:drawGuide('✨ 自由换装模式 ✨');break;
+    case STATE.CALIB:updateCalibration();drawCalibration();break;
+    default:drawGuide('举起手选择游戏吧！')
+  }
+
+  drawWrists();requestAnimationFrame(renderLoop)
+}
+
+function drawNoPose(){
+  ctx.save();ctx.fillStyle='rgba(0,0,0,0.45)';
+  const bw=280,bh=60;ctx.fillRect(canvasW/2-bw/2,canvasH/2-bh/2,bw,bh);
+  ctx.fillStyle='#fff';ctx.font=`${Math.max(16,canvasW/40)}px "PingFang SC","Microsoft YaHei",sans-serif`;
+  ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('退后一点，让摄像头看到你哦~',canvasW/2,canvasH/2);ctx.restore()
+}
+function drawGuide(t){
+  ctx.save();ctx.globalAlpha=0.6;ctx.fillStyle='#fff';
+  ctx.font=`${Math.max(15,canvasW/42)}px "PingFang SC","Microsoft YaHei",sans-serif`;
+  ctx.textAlign='center';ctx.fillText(t,canvasW/2,canvasH*0.12);ctx.restore()
+}
+
+// ===== 数学模式 =====
+function startMath(){
+  gameState=STATE.MATH;mathTarget=MATH_TASKS[mathTaskIdx%MATH_TASKS.length];mathCaught=0;mathObjects=[];mathSpawnTimer=0;
+  hudScore.textContent=`0 / ${mathTarget.count}`;hudInstruction.textContent=`用手抓 ${mathTarget.label} 吧！`;
+  progressBar.style.width='0%';bottomBar.classList.remove('hidden');selectScreen.classList.add('hidden');
+  dressupSelector.classList.add('hidden');$('bg-selector').classList.add('hidden');dressupToast.classList.add('hidden');updateTabs('math')
+}
+function updateMath(){
+  mathSpawnTimer++;
+  const every=Math.max(12,50-mathObjects.length*4);
+  if(mathSpawnTimer>=every&&mathObjects.length<10){mathSpawnTimer=0;
+    const isT=mathCaught<mathTarget.count&&Math.random()<0.5;
+    const t=isT?mathTarget.type:(Math.random()<0.5?'star':'square');
+    mathObjects.push({type:t,x:vidToCanvas(80+Math.random()*(inputVideo.videoWidth-160),0).x,y:-40-Math.random()*60,speed:1.5+Math.random()*2.5,size:22+Math.random()*18,rot:Math.random()*Math.PI*2,rSp:(Math.random()-0.5)*0.05})
+  }
+  const caught=[];
+  for(let i=mathObjects.length-1;i>=0;i--){const o=mathObjects[i];o.y+=o.speed;o.rot+=o.rSp;if(o.y>canvasH+80){mathObjects.splice(i,1);continue}
+    if(o.type===mathTarget.type){let h=false;[19,20].forEach(wi=>{if(h)return;const w=getLM(wi);if(!w||poseLandmarks[wi].visibility<0.3)return;if(Math.hypot(w.x-o.x,w.y-o.y)<72+o.size*0.7){h=true;caught.push(i)}})}
+  }
+  caught.sort((a,b)=>b-a);caught.forEach(i=>{mathObjects.splice(i,1);mathCaught++;sfxCatch()});
+  const d=Math.min(mathCaught,mathTarget.count);hudScore.textContent=`${d} / ${mathTarget.count}`;progressBar.style.width=(d/mathTarget.count*100)+'%';
+  if(mathCaught>=mathTarget.count){mathCaught=0;mathObjects=[];mathTaskIdx++;sfxSuccess();startReward()}
+}
+function drawMath(){mathObjects.forEach(o=>{
+  ctx.save();ctx.translate(o.x,o.y);ctx.rotate(o.rot);const s=o.size;
+  if(o.type==='star'){ctx.fillStyle='#ffd700';ctx.strokeStyle='#ff8c00';ctx.lineWidth=2;ctx.beginPath();
+    for(let i=0;i<5;i++){const a=i*Math.PI*2/5-Math.PI/2,r=i%2===0?s:s*0.4;i===0?ctx.moveTo(Math.cos(a)*r,Math.sin(a)*r):ctx.lineTo(Math.cos(a)*r,Math.sin(a)*r)}
+    ctx.closePath();ctx.fill();ctx.stroke();ctx.fillStyle='rgba(255,255,255,0.5)';ctx.beginPath();ctx.arc(0,-s*0.2,s*0.22,0,Math.PI*2);ctx.fill()
+  }else{ctx.fillStyle='#7ec8e3';ctx.strokeStyle='#3a8abf';ctx.lineWidth=2.5;ctx.beginPath();ctx.roundRect(-s,-s,s*2,s*2,s*0.2);ctx.fill();ctx.stroke();
+    ctx.fillStyle='rgba(255,255,255,0.4)';ctx.beginPath();ctx.roundRect(-s*0.5,-s*0.5,s*0.6,s*0.6,s*0.1);ctx.fill()
+  }ctx.restore()
+})}
+
+// ===== 英语模式 =====
+function startEng(){
+  gameState=STATE.ENGLISH;const cw=WORDS[Math.floor(Math.random()*WORDS.length)];
+  let ww;do{ww=DISTRACTORS[Math.floor(Math.random()*DISTRACTORS.length)]}while(ww.en===cw.en);
+  engWord=cw;engCorrectIdx=Math.random()<0.5?0:1;engOptions=engCorrectIdx===0?[cw,ww]:[ww,cw];engHoverTarget=-1;engHoverFrames=0;
+  hudScore.textContent='';hudInstruction.textContent=`找到 "${cw.en}" (${cw.cn})`;progressBar.style.width='0%';
+  bottomBar.classList.remove('hidden');selectScreen.classList.add('hidden');dressupSelector.classList.add('hidden');$('bg-selector').classList.add('hidden');dressupToast.classList.add('hidden');updateTabs('english')
+}
+function updateEng(){
+  if(!isPoseReady)return;
+  const cx=[canvasW*0.28,canvasW*0.72],cy=canvasH*0.38,r=Math.min(canvasW*0.2,canvasH*0.18);
+  let hi=-1;[19,20].forEach(wi=>{if(hi>=0)return;const w=getLM(wi);if(!w||poseLandmarks[wi].visibility<0.3)return;for(let i=0;i<2;i++){if(Math.hypot(w.x-cx[i],w.y-cy)<r){hi=i;return}}});
+  if(hi===engHoverTarget&&hi>=0)engHoverFrames++;else{engHoverTarget=hi;engHoverFrames=hi>=0?1:0}
+  if(engHoverTarget===engCorrectIdx){progressBar.style.width=(engHoverFrames/HOVER_NEED*100)+'%'}
+  else if(engHoverTarget>=0&&engHoverFrames>30){sfxWrong();engHoverTarget=-1;engHoverFrames=0;progressBar.style.width='0%'}
+  else if(engHoverTarget<0){progressBar.style.width='0%'}
+  if(engHoverTarget===engCorrectIdx&&engHoverFrames>=HOVER_NEED){sfxSuccess();startReward()}
+}
+function drawEng(){
+  const cx=[canvasW*0.28,canvasW*0.72],cy=canvasH*0.38,r=Math.min(canvasW*0.2,canvasH*0.18);
+  for(let i=0;i<2;i++){const o=engOptions[i],isC=i===engCorrectIdx,isH=i===engHoverTarget;let sx=0;if(isH&&!isC&&engHoverFrames>10)sx=Math.sin(engHoverFrames*0.5)*8;
+    const x=cx[i]+sx;ctx.save();const a=isH?0.75:0.45,g=ctx.createRadialGradient(x-r*0.2,cy-r*0.2,r*0.05,x,cy,r);
+    g.addColorStop(0,`rgba(255,255,255,${a*0.5})`);g.addColorStop(0.6,o.color+'cc');g.addColorStop(1,`rgba(0,0,0,${a*0.15})`);
+    ctx.fillStyle=g;ctx.strokeStyle=isH?'#ffd700':'rgba(255,255,255,0.25)';ctx.lineWidth=isH?5:2;ctx.beginPath();ctx.arc(x,cy,r,0,Math.PI*2);ctx.fill();ctx.stroke();
+    ctx.fillStyle='rgba(255,255,255,0.25)';ctx.beginPath();ctx.arc(x-r*0.25,cy-r*0.3,r*0.2,0,Math.PI*2);ctx.fill();
+    const fs=Math.max(18,r*0.7);ctx.fillStyle='#fff';ctx.font=`${fs}px "PingFang SC","Apple Color Emoji","Segoe UI Emoji",sans-serif`;
+    ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(o.emoji,x,cy-r*0.08);
+    const ls=Math.max(12,r*0.2);ctx.font=`bold ${ls}px "PingFang SC","Microsoft YaHei",sans-serif`;ctx.fillText(o.en,x,cy+r*0.42);ctx.fillText(o.cn,x,cy+r*0.6);
+    if(isH&&isC){const p=engHoverFrames/HOVER_NEED;ctx.strokeStyle='#ffd700';ctx.lineWidth=4;ctx.beginPath();ctx.arc(x,cy,r+6,-Math.PI/2,-Math.PI/2+Math.PI*2*p);ctx.stroke()}
+    ctx.restore()
+  }
+}
+
+// ===== 换装奖励 =====
+function startReward(){
+  gameState=STATE.REWARD;rewardTimer=REWARD_DUR;mathObjects=[];engHoverFrames=0;
+  const item=rewardRandomItem(),name=item?item.name:'装扮';
+  toastCountdown.textContent='5';dressupToast.innerHTML=`🎉 太棒啦！获得 <b>${name}</b> 🎉<br><span class="dressup-toast-countdown" id="toast-countdown">5</span>`;dressupToast.classList.remove('hidden');
+  hudScore.textContent='';hudInstruction.textContent='';progressBar.style.width='0%'
+}
+function updateReward(){
+  rewardTimer--;const sec=Math.ceil(rewardTimer/60),cd=dressupToast.querySelector('#toast-countdown');if(cd)cd.textContent=sec;
+  if(rewardTimer<=0){dressupToast.classList.add('hidden');gameState=STATE.SELECT;selectScreen.classList.remove('hidden');bottomBar.classList.add('hidden');dressupSelector.classList.add('hidden');$('bg-selector').classList.add('hidden')}
+}
+function drawRewardHUD(){
+  if(rewardTimer>0){const sec=Math.ceil(rewardTimer/60);ctx.save();ctx.globalAlpha=0.8;ctx.fillStyle='#ffd700';
+    ctx.font=`bold ${Math.max(40,canvasW/16)}px "PingFang SC","Microsoft YaHei",sans-serif`;ctx.textAlign='center';ctx.fillText(sec,canvasW/2,canvasH*0.2);ctx.restore()}
+}
+
+// ===== 自由换装 =====
+function startFree(){
+  gameState=STATE.FREE_DRESS;selectScreen.classList.add('hidden');bottomBar.classList.remove('hidden');
+  hudScore.textContent='';hudInstruction.textContent='挑选喜欢的装扮吧~';progressBar.style.width='0%';
+  dressupSelector.classList.remove('hidden');$('bg-selector').classList.remove('hidden');renderDressupSelector();renderBgSelector();dressupToast.classList.add('hidden');updateTabs('dressup')
+}
+
+function updateTabs(m){document.querySelectorAll('#mode-tabs .mode-btn').forEach(b=>b.classList.remove('active'));const btn=document.querySelector(`#mode-tabs .mode-btn[data-mode="${m}"]`);if(btn)btn.classList.add('active')}
+
+// ===== UI =====
+function setupUI(){
+  $('btn-start').addEventListener('click',startGame);
+  $('btn-retry').addEventListener('click',async()=>{gameActive=false;clearInterval(poseInterval);if(cameraStream){cameraStream.getTracks().forEach(t=>t.stop());cameraStream=null}if(pose){pose.close();pose=null}poseLandmarks=null;smoothLM=null;isPoseReady=false;wornItems={};await startGame()});
+  document.querySelectorAll('#select-buttons .select-btn').forEach(b=>b.addEventListener('click',()=>{const m=b.dataset.mode;if(m==='math')startMath();else if(m==='english')startEng();else if(m==='dressup')startFree()}));
+  document.querySelectorAll('#mode-tabs .mode-btn').forEach(b=>b.addEventListener('click',()=>{const m=b.dataset.mode;if(m==='math')startMath();else if(m==='english')startEng();else if(m==='dressup')startFree()}))
+}
+
+async function startGame(){
+  if(isStarting)return;isStarting=true;loadingScreen.classList.add('hidden');errorScreen.classList.add('hidden');gameScreen.classList.remove('hidden');
+  try{
+    if(!cameraStream)await setupCamera();resizeCanvas();if(!pose)await setupPose();if(!itemsLoaded)await loadDressupItems();if(!bgLoaded)await loadBackgrounds();
+    gameActive=true;isPoseReady=false;gameState=STATE.CALIB;calibActive=true;calibX=0;calibY=0;calibStableFrames=0;calibDetected=false;
+    $('calib-status-text').textContent='等待检测手指...';$('calib-status-text').style.color='#ffd700';
+    $('btn-calib-ok').disabled=true;$('btn-calib-ok').style.opacity='0.5';
+    $('calib-x-val').textContent='0';$('calib-y-val').textContent='0';
+    selectScreen.classList.add('hidden');bottomBar.classList.add('hidden');$('calib-screen').classList.remove('hidden');
+    dressupSelector.classList.add('hidden');dressupToast.classList.add('hidden');hudScore.textContent='';hudInstruction.textContent='';mathObjects=[];mathCaught=0;engHoverFrames=0;
+    requestAnimationFrame(renderLoop);clearInterval(poseInterval);poseInterval=setInterval(poseLoop,100)
+  }catch(err){console.error(err);gameActive=false;clearInterval(poseInterval);gameScreen.classList.add('hidden');errorScreen.classList.remove('hidden');
+    if(err.name==='NotAllowedError')errorMsg.textContent='摄像头权限被拒绝，请在 iPad 设置 > Safari > 摄像头 中允许，然后重试';
+    else if(err.name==='NotFoundError')errorMsg.textContent='找不到摄像头设备';
+    else errorMsg.textContent=`初始化失败: ${err.message||'未知错误'}`
+  }finally{isStarting=false}
+}
+
+// ===== 双指缩放装扮 =====
+let pinchDist0=0,pinchItemType=null,pinchBaseScale=0;
+
+gameCanvas.addEventListener('touchstart',e=>{
+  const ts=e.touches;
+
+  // 单指拖动（自由换装模式）
+  if(ts.length===1&&(gameState===STATE.FREE_DRESS||gameState===STATE.REWARD)){
+    const tx=ts[0].clientX,ty=ts[0].clientY;
+    // 检测是否碰到某个装扮
+    let closest=null,closestDist=Infinity;
+    for(const [type,item] of Object.entries(wornItems)){
+      const anchor=type==='body'?getBodyRect():type==='face'?getEyeCenter():type==='neck'?getNeckPt():getHeadTop();
+      if(!anchor)continue;
+      const ax=type==='body'?anchor.topX:anchor.x;
+      const ay=type==='body'?anchor.topY:anchor.y;
+      const d=Math.hypot(tx-ax,ty-ay);
+      const threshold=type==='body'?200:120;
+      if(d<threshold&&d<closestDist){closestDist=d;closest=item}
+    }
+    if(closest){
+      dragItemId=closest.id;
+      dragStartX=tx;dragStartY=ty;
+      const offs=itemOffsets[closest.id]||{ox:0,oy:0};
+      dragOrigOX=offs.ox;dragOrigOY=offs.oy;
+      e.preventDefault();
+      return
+    }
+  }
+
+  // 双指缩放
+  if(ts.length===2){
+    e.preventDefault();
+    const item=wornItems['head']||wornItems['face']||wornItems['neck'];
+    if(!item)return;
+    pinchItemType=item.type;
+    pinchBaseScale=item.scale;
+    pinchDist0=Math.hypot(ts[0].clientX-ts[1].clientX,ts[0].clientY-ts[1].clientY)
+  }
+},{passive:false});
+
+gameCanvas.addEventListener('touchmove',e=>{
+  const ts=e.touches;
+  // 单指拖动
+  if(ts.length===1&&dragItemId){
+    e.preventDefault();
+    const dx=ts[0].clientX-dragStartX,dy=ts[0].clientY-dragStartY;
+    itemOffsets[dragItemId]={ox:dragOrigOX+dx,oy:dragOrigOY+dy};
+    return
+  }
+  // 双指缩放
+  if(ts.length===2&&pinchItemType){
+    e.preventDefault();
+    const dist=Math.hypot(ts[0].clientX-ts[1].clientX,ts[0].clientY-ts[1].clientY);
+    if(pinchDist0>0){
+      const ratio=dist/pinchDist0;
+      const ns=Math.max(0.2,Math.min(1.5,pinchBaseScale*ratio));
+      if(wornItems[pinchItemType])wornItems[pinchItemType]={...wornItems[pinchItemType],scale:Math.round(ns*100)/100}
+    }
+  }
+},{passive:false});
+
+gameCanvas.addEventListener('touchend',()=>{pinchDist0=0;pinchItemType=null;dragItemId=null});
+
+// ===== 校准按钮 =====
+$('btn-calib-ok').addEventListener('click',()=>{
+  calibActive=false;$('calib-screen').classList.add('hidden');
+  gameState=STATE.SELECT;selectScreen.classList.remove('hidden');$('bg-selector').classList.remove('hidden');renderBgSelector();
+  if(!calibDetected){
+    const dx=parseInt($('calib-x-val').textContent)||0;
+    const dy=parseInt($('calib-y-val').textContent)||0;
+    calibX=dx;calibY=dy;
+  }
+});
+$('btn-calib-skip').addEventListener('click',()=>{
+  calibActive=false;calibX=0;calibY=0;
+  $('calib-screen').classList.add('hidden');
+  gameState=STATE.SELECT;selectScreen.classList.remove('hidden');$('bg-selector').classList.remove('hidden');renderBgSelector()
+});
+
+window.addEventListener('resize',()=>resizeCanvas());
+setupUI();loadDressupItems();
+</script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+{
+  "name": "yueyueyouxi",
+  "version": "1.0.0",
+  "description": "约约游戏 - AR虚拟装扮+幼儿教育互动游戏",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-basic-ssl": "^1.1.0",
+    "vite": "^5.4.0"
+  }
+}

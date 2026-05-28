@@ -1,0 +1,202 @@
+[
+  {
+    "id": "crown_real",
+    "name": "金色皇冠",
+    "nameEn": "Golden Crown",
+    "type": "head",
+    "src": "assets/dressup/crown_real.png",
+    "anchor": "head",
+    "scale": 0.5,
+    "offsetY": -0.55
+  },
+  {
+    "id": "dress_pink_r",
+    "name": "粉色公主裙",
+    "nameEn": "Pink Princess Dress",
+    "type": "body",
+    "src": "assets/dressup/dress_pink_r.png",
+    "anchor": "body",
+    "scale": 0.75,
+    "offsetY": 0.15
+  },
+  {
+    "id": "dress_blue_r",
+    "name": "蓝色公主裙",
+    "nameEn": "Blue Princess Dress",
+    "type": "body",
+    "src": "assets/dressup/dress_blue_r.png",
+    "anchor": "body",
+    "scale": 0.75,
+    "offsetY": 0.15
+  },
+  {
+    "id": "necklace_r",
+    "name": "珍珠项链",
+    "nameEn": "Pearl Necklace",
+    "type": "neck",
+    "src": "assets/dressup/necklace_r.png",
+    "anchor": "neck",
+    "scale": 0.5,
+    "offsetY": 0.1
+  },
+  {
+    "id": "sunglasses_r",
+    "name": "酷酷墨镜",
+    "nameEn": "Cool Sunglasses",
+    "type": "face",
+    "src": "assets/dressup/sunglasses_r.png",
+    "anchor": "eyes",
+    "scale": 0.5,
+    "offsetY": 0.0
+  },
+  {
+    "id": "cat_ears_r",
+    "name": "猫耳朵发箍",
+    "nameEn": "Cat Ears Headband",
+    "type": "head",
+    "src": "assets/dressup/cat_ears_r.png",
+    "anchor": "head",
+    "scale": 0.45,
+    "offsetY": -0.65
+  },
+  {
+    "id": "bow_red_r",
+    "name": "红色蝴蝶结",
+    "nameEn": "Red Hair Bow",
+    "type": "head",
+    "src": "assets/dressup/bow_red_r.png",
+    "anchor": "head",
+    "scale": 0.4,
+    "offsetY": 0.1
+  },
+  {
+    "id": "wings_r",
+    "name": "仙女翅膀",
+    "nameEn": "Fairy Wings",
+    "type": "body",
+    "src": "assets/dressup/wings_r.png",
+    "anchor": "shoulders",
+    "scale": 0.6,
+    "offsetY": -0.1
+  },
+  {
+    "id": "flower_crown_r",
+    "name": "鲜花花环",
+    "nameEn": "Flower Crown",
+    "type": "head",
+    "src": "assets/dressup/flower_crown_r.png",
+    "anchor": "head",
+    "scale": 0.55,
+    "offsetY": -0.35
+  },
+  {
+    "id": "wand_r",
+    "name": "魔法棒",
+    "nameEn": "Magic Wand",
+    "type": "body",
+    "src": "assets/dressup/wand_r.png",
+    "anchor": "shoulders",
+    "scale": 0.4,
+    "offsetY": 0.0
+  },
+  {
+    "id": "crown_gold",
+    "name": "金色皇冠",
+    "nameEn": "Crown",
+    "type": "head",
+    "src": "assets/dressup/crown_gold.png",
+    "anchor": "head",
+    "scale": 0.65,
+    "offsetY": -0.55
+  },
+  {
+    "id": "flower_crown",
+    "name": "花环",
+    "nameEn": "Flower Crown",
+    "type": "head",
+    "src": "assets/dressup/flower_crown.png",
+    "anchor": "head",
+    "scale": 0.55,
+    "offsetY": -0.35
+  },
+  {
+    "id": "cat_ears",
+    "name": "猫耳朵",
+    "nameEn": "Cat Ears",
+    "type": "head",
+    "src": "assets/dressup/cat_ears.png",
+    "anchor": "head",
+    "scale": 0.5,
+    "offsetY": -0.7
+  },
+  {
+    "id": "bunny_ears",
+    "name": "兔耳朵",
+    "nameEn": "Bunny Ears",
+    "type": "head",
+    "src": "assets/dressup/bunny_ears.png",
+    "anchor": "head",
+    "scale": 0.5,
+    "offsetY": -0.75
+  },
+  {
+    "id": "sunglasses",
+    "name": "酷酷墨镜",
+    "nameEn": "Sunglasses",
+    "type": "face",
+    "src": "assets/dressup/sunglasses.png",
+    "anchor": "eyes",
+    "scale": 0.55,
+    "offsetY": 0
+  },
+  {
+    "id": "necklace",
+    "name": "珍珠项链",
+    "nameEn": "Necklace",
+    "type": "neck",
+    "src": "assets/dressup/necklace.png",
+    "anchor": "neck",
+    "scale": 0.6,
+    "offsetY": 0.1
+  },
+  {
+    "id": "bow_red",
+    "name": "红色蝴蝶结",
+    "nameEn": "Red Bow",
+    "type": "head",
+    "src": "assets/dressup/bow_red.png",
+    "anchor": "head",
+    "scale": 0.45,
+    "offsetY": 0.1
+  },
+  {
+    "id": "fairy_wings",
+    "name": "仙女翅膀",
+    "nameEn": "Fairy Wings",
+    "type": "body",
+    "src": "assets/dressup/fairy_wings.png",
+    "anchor": "shoulders",
+    "scale": 0.65,
+    "offsetY": -0.1
+  },
+  {
+    "id": "dress_pink",
+    "name": "粉色公主裙",
+    "nameEn": "Pink Dress",
+    "type": "body",
+    "src": "assets/dressup/dress_pink.png",
+    "anchor": "body",
+    "scale": 0.75,
+    "offsetY": 0.15
+  },
+  {
+    "id": "dress_purple",
+    "name": "紫色公主裙",
+    "nameEn": "Purple Dress",
+    "type": "body",
+    "src": "assets/dressup/dress_purple.png",
+    "anchor": "body",
+    "scale": 0.75,
+    "offsetY": 0.15
+  }
+]

@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
+<title>装扮素材管理工具</title>
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'PingFang SC','Microsoft YaHei',sans-serif;background:linear-gradient(135deg,#2d1b4e,#1a0a2e,#0d1b3e);color:#fff;min-height:100vh}
+.container{max-width:800px;margin:0 auto;padding:20px}
+h1{text-align:center;font-size:26px;margin:16px 0 4px;color:#f8e3ff}
+.subtitle{text-align:center;font-size:14px;color:#c9b8e8;margin-bottom:20px}
+
+.card{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:20px;margin-bottom:16px}
+
+.drop-zone{border:3px dashed rgba(200,150,255,0.5);border-radius:16px;padding:40px 20px;text-align:center;cursor:pointer;transition:all 0.3s;margin-bottom:12px}
+.drop-zone:hover,.drop-zone.dragover{border-color:#ffd700;background:rgba(255,215,0,0.06)}
+.drop-zone .icon{font-size:48px;display:block;margin-bottom:8px}
+.drop-zone .text{font-size:16px;color:#f8e3ff}
+.drop-zone .hint{font-size:12px;color:#999;margin-top:6px}
+
+input[type=file]{display:none}
+
+.row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.col{flex:1;min-width:150px}
+.col label{display:block;font-size:13px;color:#c9b8e8;margin-bottom:4px;font-weight:600}
+.col input,.col select{padding:10px 12px;border:2px solid rgba(200,150,255,0.25);border-radius:10px;background:rgba(255,255,255,0.08);color:#fff;font-size:14px;width:100%}
+.col input:focus,.col select:focus{border-color:#ffd700;outline:none}
+.col select option{background:#2d1b4e;color:#fff}
+
+.preview-canvas-wrap{text-align:center;margin:12px 0;position:relative}
+.preview-canvas-wrap canvas{max-width:100%;border-radius:12px;border:2px solid rgba(255,255,255,0.2)}
+
+.slider-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.slider-row label{min-width:80px;font-size:13px;color:#c9b8e8}
+.slider-row input[type=range]{flex:1}
+.slider-row span{min-width:36px;text-align:right;font-size:13px;color:#ffd700}
+
+.btn{padding:12px 28px;border:none;border-radius:25px;font-size:15px;font-weight:700;cursor:pointer;transition:all 0.3s;letter-spacing:1px}
+.btn:active{transform:scale(0.94)}
+.btn-primary{background:linear-gradient(135deg,#ffd700,#ff8c00);color:#1a0a2e}
+.btn-secondary{background:rgba(255,255,255,0.12);color:#fff;border:2px solid rgba(255,255,255,0.25)}
+.btn-danger{background:rgba(255,60,60,0.25);color:#f88;border:2px solid rgba(255,60,60,0.3)}
+.btn-small{padding:6px 14px;font-size:12px;border-radius:15px}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:12px}
+
+.status{text-align:center;padding:8px 16px;border-radius:8px;margin:8px 0;font-size:13px;display:none}
+.status.show{display:block}
+.status.success{background:rgba(0,255,100,0.12);color:#0f0}
+.status.error{background:rgba(255,0,0,0.12);color:#f66}
+.status.info{background:rgba(255,215,0,0.1);color:#ffd700}
+
+.item-list-item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(255,255,255,0.04);border-radius:10px;margin-bottom:6px;flex-wrap:wrap}
+.item-list-item img{width:44px;height:44px;border-radius:8px;object-fit:contain;background:url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"><rect width="10" height="10" fill="%23333"/><rect x="10" y="10" width="10" height="10" fill="%23333"/><rect x="10" width="10" height="10" fill="%23555"/><rect y="10" width="10" height="10" fill="%23555"/></svg>') repeat}
+.item-list-item .info{flex:1;min-width:100px}
+.item-list-item .info .name{font-size:14px;font-weight:700;color:#f8e3ff}
+.item-list-item .info .meta{font-size:11px;color:#999}
+.item-list-item .actions{display:flex;gap:6px}
+
+.help-box{font-size:12px;color:#999;line-height:1.8;margin-top:12px;padding:12px;background:rgba(255,255,255,0.03);border-radius:10px}
+.help-box code{background:rgba(255,255,255,0.1);padding:2px 6px;border-radius:4px;font-size:11px}
+
+@media(max-width:500px){
+  .container{padding:12px}
+  .card{padding:14px}
+  .drop-zone{padding:30px 14px}
+  .col{min-width:100%}
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🎨 装扮素材管理工具</h1>
+  <p class="subtitle">上传照片，调整参数，一键保存到游戏</p>
+
+  <!-- Upload -->
+  <div class="card">
+    <div class="drop-zone" id="drop-zone">
+      <span class="icon">📸</span>
+      <span class="text">点击或拖拽照片到这里</span>
+      <span class="hint">支持 JPG/PNG/WebP，推荐透明PNG或纯色背景照片</span>
+    </div>
+    <input type="file" id="file-input" accept="image/*">
+
+    <div class="preview-canvas-wrap" id="preview-wrap" style="display:none">
+      <canvas id="preview-canvas"></canvas>
+      <p style="font-size:11px;color:#999;margin-top:4px">👇 点击图片中的背景色可以去除（色度键抠图）</p>
+    </div>
+
+    <div class="slider-row">
+      <label>容差</label>
+      <input type="range" id="tolerance" min="10" max="120" value="50">
+      <span id="tol-val">50</span>
+    </div>
+  </div>
+
+  <!-- Parameters -->
+  <div class="card" id="params-card">
+    <h3 style="font-size:16px;color:#f8e3ff;margin-bottom:12px">⚙️ 装扮参数</h3>
+    <div class="row">
+      <div class="col"><label>中文名称</label><input type="text" id="item-name" placeholder="粉色公主裙"></div>
+      <div class="col"><label>英文名称（ID）</label><input type="text" id="item-name-en" placeholder="Pink Dress"></div>
+    </div>
+    <div class="row">
+      <div class="col">
+        <label>装扮类型</label>
+        <select id="item-type">
+          <option value="head">👑 头部饰品</option>
+          <option value="face">😎 脸部饰品</option>
+          <option value="neck">📿 颈部饰品</option>
+          <option value="body">👗 衣服/裙子</option>
+        </select>
+      </div>
+      <div class="col">
+        <label>锚点</label>
+        <select id="item-anchor">
+          <option value="head">头顶</option>
+          <option value="eyes">眼睛</option>
+          <option value="neck">脖子</option>
+          <option value="shoulders">肩膀</option>
+          <option value="body">身体</option>
+        </select>
+      </div>
+    </div>
+    <div class="slider-row">
+      <label>缩放</label>
+      <input type="range" id="item-scale" min="0.25" max="1.2" step="0.05" value="0.55">
+      <span id="scale-val">0.55</span>
+    </div>
+    <div class="slider-row">
+      <label>纵向偏移</label>
+      <input type="range" id="item-offset" min="-1" max="1" step="0.05" value="0">
+      <span id="offset-val">0</span>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="btn-save">💾 保存到游戏</button>
+      <button class="btn btn-secondary" id="btn-download-png">📥 下载PNG</button>
+      <button class="btn btn-danger btn-small" id="btn-clear">清除重来</button>
+    </div>
+    <div class="status" id="status"></div>
+  </div>
+
+  <!-- Saved Items -->
+  <div class="card">
+    <h3 style="font-size:16px;color:#f8e3ff;margin-bottom:6px">📦 已保存的素材 (<span id="item-count">0</span>)</h3>
+    <div id="item-list"></div>
+    <div class="btn-row" style="margin-top:10px">
+      <button class="btn btn-secondary btn-small" id="btn-export-json">📋 导出 items.json</button>
+      <button class="btn btn-danger btn-small" id="btn-clear-all">🗑 清空所有素材</button>
+    </div>
+  </div>
+
+  <!-- Help -->
+  <div class="help-box">
+    <b>💡 提示：</b><br>
+    • 推荐使用<b>透明背景的 PNG 图片</b>效果最好<br>
+    • 如果照片有背景色，点击预览图中的背景区域可以去除该颜色<br>
+    • 白色/绿色背景的照片去背景效果最好<br>
+    • 需要 AI 自动去背景？在电脑上运行 <code>python scripts/process_photo.py 照片.jpg --name "名称" --name-en "Name" --type body --anchor body</code><br>
+    • 素材保存在浏览器中，清除浏览器数据会丢失，记得导出备份
+  </div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const dropZone=$('drop-zone'),fileInput=$('file-input'),previewWrap=$('preview-wrap');
+const previewCanvas=$('preview-canvas'),pctx=previewCanvas.getContext('2d');
+const STORAGE_KEY='yueyue_custom_items';
+
+let originalImage=null,processedImage=null,clickedColor=null;
+
+// ===== File handling =====
+dropZone.addEventListener('click',()=>fileInput.click());
+fileInput.addEventListener('change',e=>handleFile(e.target.files[0]));
+
+dropZone.addEventListener('dragover',e=>{e.preventDefault();dropZone.classList.add('dragover')});
+dropZone.addEventListener('dragleave',()=>dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop',e=>{
+  e.preventDefault();dropZone.classList.remove('dragover');
+  const f=e.dataTransfer.files[0];if(f)handleFile(f);
+});
+
+function handleFile(file){
+  if(!file||!file.type.startsWith('image/')){showStatus('请选择图片文件','error');return}
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const img=new Image();
+    img.onload=()=>{
+      originalImage=img;clickedColor=null;
+      // 自动填充名称
+      const fn=file.name.replace(/\.[^.]+$/,'');
+      if(!$('item-name').value)$('item-name').value=fn;
+      if(!$('item-name-en').value)$('item-name-en').value=fn.replace(/[^a-zA-Z0-9]/g,'_').toLowerCase();
+      processImage();
+    };
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+// ===== Image processing =====
+function processImage(){
+  if(!originalImage)return;
+  const w=originalImage.width,h=originalImage.height;
+  const maxW=500,sc=w>maxW?maxW/w:1;
+  const cw=Math.floor(w*sc),ch=Math.floor(h*sc);
+
+  previewCanvas.width=cw;previewCanvas.height=ch;
+  pctx.clearRect(0,0,cw,ch);
+
+  // Draw checkerboard
+  const cs=10;
+  for(let y=0;y<ch;y+=cs){
+    for(let x=0;x<cw;x+=cs){
+      pctx.fillStyle=(Math.floor(x/cs)+Math.floor(y/cs))%2===0?'#444':'#666';
+      pctx.fillRect(x,y,cs,cs);
+    }
+  }
+
+  // Draw image
+  pctx.drawImage(originalImage,0,0,cw,ch);
+
+  // Apply color key if selected
+  if(clickedColor){
+    const imgData=pctx.getImageData(0,0,cw,ch);
+    const tol=parseInt($('tolerance').value);
+    const target=clickedColor;
+    for(let i=0;i<imgData.data.length;i+=4){
+      const dr=imgData.data[i]-target[0],dg=imgData.data[i+1]-target[1],db=imgData.data[i+2]-target[2];
+      if(Math.abs(dr)<tol&&Math.abs(dg)<tol&&Math.abs(db)<tol){
+        imgData.data[i+3]=0;
+      }
+    }
+    pctx.putImageData(imgData,0,0);
+  }
+
+  previewWrap.style.display='block';
+}
+
+// Click on preview to pick background color
+previewCanvas.addEventListener('click',e=>{
+  if(!originalImage)return;
+  const rect=previewCanvas.getBoundingClientRect();
+  const sx=(e.clientX-rect.left)*(previewCanvas.width/rect.width);
+  const sy=(e.clientY-rect.top)*(previewCanvas.height/rect.height);
+  const px=pctx.getImageData(Math.floor(sx),Math.floor(sy),1,1).data;
+  clickedColor=[px[0],px[1],px[2]];
+  processImage();
+  showStatus(`已选背景色 RGB(${clickedColor.join(',')})，调整容差可微调`, 'info');
+});
+
+// Tolerance
+$('tolerance').addEventListener('input',()=>{
+  $('tol-val').textContent=$('tolerance').value;
+  if(clickedColor)processImage();
+});
+
+// ===== Parameter sliders =====
+$('item-scale').addEventListener('input',()=>$('scale-val').textContent=$('item-scale').value);
+$('item-offset').addEventListener('input',()=>$('offset-val').textContent=$('item-offset').value);
+
+// Auto-set anchor based on type
+$('item-type').addEventListener('change',()=>{
+  const map={head:'head',face:'eyes',neck:'neck',body:'body'};
+  $('item-anchor').value=map[$('item-type').value]||'head';
+});
+
+// ===== Save =====
+$('btn-save').addEventListener('click',()=>{
+  if(!originalImage){showStatus('请先上传图片','error');return}
+  const name=$('item-name').value.trim();
+  const nameEn=$('item-name-en').value.trim();
+  if(!name||!nameEn){showStatus('请填写名称','error');return}
+
+  // Render final image at usable size
+  const maxDim=600,sc=Math.min(maxDim/originalImage.width,maxDim/originalImage.height);
+  const fw=Math.floor(originalImage.width*sc),fh=Math.floor(originalImage.height*sc);
+  const tmpCanvas=document.createElement('canvas');tmpCanvas.width=fw;tmpCanvas.height=fh;
+  const tctx=tmpCanvas.getContext('2d');
+  tctx.drawImage(originalImage,0,0,fw,fh);
+
+  // Apply color key if active
+  if(clickedColor){
+    const imgData=tctx.getImageData(0,0,fw,fh);
+    const tol=parseInt($('tolerance').value);
+    const target=clickedColor;
+    for(let i=0;i<imgData.data.length;i+=4){
+      const dr=imgData.data[i]-target[0],dg=imgData.data[i+1]-target[1],db=imgData.data[i+2]-target[2];
+      if(Math.abs(dr)<tol&&Math.abs(dg)<tol&&Math.abs(db)<tol)imgData.data[i+3]=0;
+    }
+    tctx.putImageData(imgData,0,0);
+  }
+
+  const dataUrl=tmpCanvas.toDataURL('image/png');
+  const id=nameEn.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'');
+
+  const item={
+    id,name,nameEn,
+    type:$('item-type').value,
+    anchor:$('item-anchor').value,
+    scale:parseFloat($('item-scale').value),
+    offsetY:parseFloat($('item-offset').value),
+    dataUrl
+  };
+
+  // Save to localStorage
+  const items=getSavedItems();
+  const existingIdx=items.findIndex(i=>i.id===id);
+  if(existingIdx>=0){
+    items[existingIdx]=item;
+    showStatus(`已更新 "${name}" (id: ${id})`, 'success');
+  }else{
+    items.push(item);
+    showStatus(`✅ "${name}" 已保存！刷新游戏即可使用`, 'success');
+  }
+  saveItems(items);
+  renderItemList();
+});
+
+// ===== Download =====
+$('btn-download-png').addEventListener('click',()=>{
+  if(!originalImage)return;
+  const url=previewCanvas.toDataURL('image/png');
+  const a=document.createElement('a');
+  a.href=url;
+  const name=($('item-name-en').value||'item').replace(/[^a-zA-Z0-9]/g,'_');
+  a.download=name+'.png';
+  a.click();
+});
+
+$('btn-clear').addEventListener('click',()=>{
+  originalImage=null;clickedColor=null;
+  pctx.clearRect(0,0,previewCanvas.width,previewCanvas.height);
+  previewWrap.style.display='none';
+  fileInput.value='';
+});
+
+// ===== localStorage =====
+function getSavedItems(){
+  try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]')}catch(e){return[]}
+}
+function saveItems(items){localStorage.setItem(STORAGE_KEY,JSON.stringify(items))}
+
+function renderItemList(){
+  const items=getSavedItems();
+  $('item-count').textContent=items.length;
+  const list=$('item-list');
+  if(items.length===0){list.innerHTML='<p style="color:#666;font-size:13px;text-align:center;padding:16px">还没有保存的素材</p>';return}
+
+  list.innerHTML=items.map((item,i)=>`
+    <div class="item-list-item">
+      <img src="${item.dataUrl}" alt="${item.name}" loading="lazy">
+      <div class="info">
+        <div class="name">${item.name} <span style="font-size:11px;color:#999">(${item.id})</span></div>
+        <div class="meta">${item.type} | 缩放:${item.scale} | 偏移:${item.offsetY}</div>
+      </div>
+      <div class="actions">
+        <button class="btn btn-secondary btn-small" data-action="edit" data-idx="${i}">✏️</button>
+        <button class="btn btn-danger btn-small" data-action="delete" data-idx="${i}">🗑</button>
+      </div>
+    </div>
+  `).join('');
+
+  // Event delegation
+  list.querySelectorAll('[data-action="edit"]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const item=getSavedItems()[parseInt(btn.dataset.idx)];
+      if(!item)return;
+      $('item-name').value=item.name;
+      $('item-name-en').value=item.id;
+      $('item-type').value=item.type;
+      $('item-anchor').value=item.anchor;
+      $('item-scale').value=item.scale;$('scale-val').textContent=item.scale;
+      $('item-offset').value=item.offsetY;$('offset-val').textContent=item.offsetY;
+      // Load image from dataUrl
+      const img=new Image();
+      img.onload=()=>{originalImage=img;clickedColor=null;processImage();fileInput.value=''};
+      img.src=item.dataUrl;
+      window.scrollTo({top:0,behavior:'smooth'});
+    });
+  });
+  list.querySelectorAll('[data-action="delete"]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      if(!confirm('确定删除这个素材吗？'))return;
+      const items=getSavedItems();
+      items.splice(parseInt(btn.dataset.idx),1);
+      saveItems(items);renderItemList();
+      showStatus('已删除','info');
+    });
+  });
+}
+
+$('btn-clear-all').addEventListener('click',()=>{
+  if(!confirm('确定清空所有自定义素材吗？此操作不可恢复！'))return;
+  localStorage.removeItem(STORAGE_KEY);renderItemList();
+  showStatus('已清空','info');
+});
+
+// ===== Export =====
+$('btn-export-json').addEventListener('click',()=>{
+  const items=getSavedItems();
+  if(items.length===0){showStatus('没有可导出的素材','error');return}
+  const exportItems=items.map(({id,name,nameEn,type,anchor,scale,offsetY})=>({
+    id,name,nameEn,type,anchor,scale,offsetY,
+    src:`assets/dressup/${id}.png`
+  }));
+  const blob=new Blob([JSON.stringify(exportItems,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='items_export.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  showStatus('已导出 items.json', 'success');
+});
+
+function showStatus(msg,type){
+  const el=$('status');el.textContent=msg;el.className='status show '+type;
+  setTimeout(()=>el.classList.remove('show'),3000);
+}
+
+renderItemList();
+</script>
+</body>
+</html>
