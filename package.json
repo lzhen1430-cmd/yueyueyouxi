@@ -1,7 +1,7 @@
 {
   "name": "yueyueyouxi",
   "version": "1.0.0",
-  "description": "约约游戏 - AR虚拟装扮+幼儿教育互动游戏",
+  "description": "悦悦游戏 - AR虚拟装扮+幼儿教育互动游戏",
   "scripts": {
     "dev": "vite --host",
     "build": "vite build",
