@@ -73,8 +73,6 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'PingFang SC','Hira
   align-items:center;justify-content:center;transition:all 0.3s;overflow:hidden}
 .dressup-item-btn img{max-width:80%;max-height:80%;object-fit:contain}
 .dressup-item-btn.worn{border-color:#ffd700;background:rgba(255,215,0,0.2);box-shadow:0 0 12px rgba(255,215,0,0.4)}
-.bg-thumb.active{border-color:#ffd700!important;box-shadow:0 0 12px rgba(255,215,0,0.5)}
-.bg-thumb:hover{border-color:rgba(255,255,255,0.7)}
 
 #dressup-toast{position:absolute;top:40%;left:50%;transform:translate(-50%,-50%);z-index:18;
   font-size:22px;font-weight:800;color:#ffd700;text-shadow:0 0 30px rgba(255,215,0,0.6);pointer-events:none;
@@ -135,9 +133,6 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'PingFang SC','Hira
       <button id="btn-calib-skip" style="background:none;border:none;color:#999;font-size:13px;cursor:pointer;margin-top:4px;text-decoration:underline">跳过校准，直接开始</button>
     </div>
     <div id="dressup-selector" class="hidden"></div>
-    <div id="bg-selector" class="hidden" style="position:absolute;top:50px;right:8px;z-index:16;display:flex;flex-direction:column;gap:6px">
-      <div class="bg-thumb active" data-bg="" style="width:42px;height:42px;border:2px solid rgba(255,255,255,0.4);border-radius:10px;background:rgba(0,0,0,0.5);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:20px;transition:all 0.3s" title="无背景">🚫</div>
-    </div>
     <div id="dressup-toast" class="hidden"><span class="dressup-toast-countdown" id="toast-countdown">5</span></div>
     <div id="bottom-bar" class="hidden">
       <div class="mode-tabs" id="mode-tabs">
@@ -251,45 +246,6 @@ let rewardTimer=0; const REWARD_DUR=300;
 
 // ===== 装扮系统 =====
 let dressupItems=[],dressupImgs={},wornItems={},itemsLoaded=false;
-
-// ===== 背景系统 =====
-let bgList=[],bgImgs={},currentBgId=null,bgLoaded=false;
-async function loadBackgrounds(){
-  try{
-    const r=await fetch('assets/backgrounds/backgrounds.json');
-    bgList=await r.json();
-    await Promise.all(bgList.map(bg=>new Promise(res=>{
-      const img=new Image();img.onload=()=>{bgImgs[bg.id]=img;res()};img.onerror=()=>res();img.src=bg.src;
-    })));
-    bgLoaded=true;renderBgSelector();
-  }catch(e){console.warn('Bg load fail:',e)}
-}
-function renderBgSelector(){
-  const sel=$('bg-selector');if(!sel)return;
-  sel.innerHTML='<div class="bg-thumb'+(currentBgId===null?' active':'')+'" data-bg="" style="width:42px;height:42px;border:2px solid rgba(255,255,255,0.4);border-radius:10px;background:rgba(0,0,0,0.5);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;transition:all 0.3s" title="无背景">🚫</div>';
-  bgList.forEach(bg=>{
-    const d=document.createElement('div');
-    d.className='bg-thumb'+(bg.id===currentBgId?' active':'');
-    d.dataset.bg=bg.id;
-    d.title=bg.name;
-    d.style.cssText='width:42px;height:42px;border:2px solid rgba(255,255,255,0.4);border-radius:10px;cursor:pointer;overflow:hidden;transition:all 0.3s;background:rgba(0,0,0,0.3)';
-    const img=document.createElement('img');img.src=bg.src;img.style.cssText='width:100%;height:100%;object-fit:cover';
-    d.appendChild(img);
-    d.addEventListener('click',e=>{e.stopPropagation();currentBgId=currentBgId===bg.id?null:bg.id;renderBgSelector()});
-    sel.appendChild(d)
-  });
-  // "no bg" button
-  sel.querySelector('.bg-thumb[data-bg=""]').addEventListener('click',e=>{e.stopPropagation();currentBgId=null;renderBgSelector()})
-}
-function drawBackground(){
-  if(!currentBgId||!bgImgs[currentBgId])return;
-  const img=bgImgs[currentBgId],iw=img.width,ih=img.height;
-  const sc=Math.max(canvasW/iw,canvasH/ih),dw=iw*sc,dh=ih*sc,dx=(canvasW-dw)/2,dy=(canvasH-dh)/2;
-  ctx.save();ctx.globalAlpha=1;ctx.drawImage(img,dx,dy,dw,dh);
-  // 半透明遮罩让视频层融合
-  ctx.fillStyle='rgba(0,0,0,0.25)';ctx.fillRect(0,0,canvasW,canvasH);
-  ctx.restore()
-}
 
 // ===== 自动校准 =====
 function updateCalibration(){
@@ -588,15 +544,10 @@ function renderLoop(){
   resizeCanvas();
   ctx.clearRect(0,0,canvasW,canvasH);
 
-  // 背景层
-  if(currentBgId)drawBackground();
-
   const vw=inputVideo.videoWidth||640,vh=inputVideo.videoHeight||480;
   if(vw>0&&vh>0){
     const sc=Math.max(canvasW/vw,canvasH/vh),dw=vw*sc,dh=vh*sc,dx=(canvasW-dw)/2,dy=(canvasH-dh)/2;
-    // 如果有背景，降低视频不透明度做融合效果
-    const alpha=currentBgId?0.55:1;
-    ctx.save();ctx.globalAlpha=alpha;ctx.translate(canvasW,0);ctx.scale(-1,1);
+    ctx.save();ctx.translate(canvasW,0);ctx.scale(-1,1);
     ctx.drawImage(inputVideo,canvasW-dx-dw,dy,dw,dh);
     ctx.restore()
   }
@@ -635,7 +586,7 @@ function startMath(){
   gameState=STATE.MATH;mathTarget=MATH_TASKS[mathTaskIdx%MATH_TASKS.length];mathCaught=0;mathObjects=[];mathSpawnTimer=0;
   hudScore.textContent=`0 / ${mathTarget.count}`;hudInstruction.textContent=`用手抓 ${mathTarget.label} 吧！`;
   progressBar.style.width='0%';bottomBar.classList.remove('hidden');selectScreen.classList.add('hidden');
-  dressupSelector.classList.add('hidden');$('bg-selector').classList.add('hidden');dressupToast.classList.add('hidden');updateTabs('math')
+  dressupSelector.classList.add('hidden');dressupToast.classList.add('hidden');updateTabs('math')
 }
 function updateMath(){
   mathSpawnTimer++;
@@ -676,7 +627,7 @@ function startEng(){
   let ww;do{ww=DISTRACTORS[Math.floor(Math.random()*DISTRACTORS.length)]}while(ww.en===cw.en);
   engWord=cw;engCorrectIdx=Math.random()<0.5?0:1;engOptions=engCorrectIdx===0?[cw,ww]:[ww,cw];engHoverTarget=-1;engHoverFrames=0;
   hudScore.textContent='';hudInstruction.textContent=`找到 "${cw.en}" (${cw.cn})`;progressBar.style.width='0%';
-  bottomBar.classList.remove('hidden');selectScreen.classList.add('hidden');dressupSelector.classList.add('hidden');$('bg-selector').classList.add('hidden');dressupToast.classList.add('hidden');updateTabs('english')
+  bottomBar.classList.remove('hidden');selectScreen.classList.add('hidden');dressupSelector.classList.add('hidden');dressupToast.classList.add('hidden');updateTabs('english')
 }
 function updateEng(){
   if(!isPoseReady)return;
@@ -723,7 +674,7 @@ function drawRewardHUD(){
 function startFree(){
   gameState=STATE.FREE_DRESS;selectScreen.classList.add('hidden');bottomBar.classList.remove('hidden');
   hudScore.textContent='';hudInstruction.textContent='挑选喜欢的装扮吧~';progressBar.style.width='0%';
-  dressupSelector.classList.remove('hidden');$('bg-selector').classList.remove('hidden');renderDressupSelector();renderBgSelector();dressupToast.classList.add('hidden');updateTabs('dressup')
+  dressupSelector.classList.remove('hidden');renderDressupSelector();renderBgSelector();dressupToast.classList.add('hidden');updateTabs('dressup')
 }
 
 function updateTabs(m){document.querySelectorAll('#mode-tabs .mode-btn').forEach(b=>b.classList.remove('active'));const btn=document.querySelector(`#mode-tabs .mode-btn[data-mode="${m}"]`);if(btn)btn.classList.add('active')}
@@ -739,7 +690,7 @@ function setupUI(){
 async function startGame(){
   if(isStarting)return;isStarting=true;loadingScreen.classList.add('hidden');errorScreen.classList.add('hidden');gameScreen.classList.remove('hidden');
   try{
-    if(!cameraStream)await setupCamera();resizeCanvas();if(!pose)await setupPose();if(!itemsLoaded)await loadDressupItems();if(!bgLoaded)await loadBackgrounds();
+    if(!cameraStream)await setupCamera();resizeCanvas();if(!pose)await setupPose();if(!itemsLoaded)await loadDressupItems();
     gameActive=true;isPoseReady=false;gameState=STATE.CALIB;calibActive=true;calibX=0;calibY=0;calibStableFrames=0;calibDetected=false;
     $('calib-status-text').textContent='等待检测手指...';$('calib-status-text').style.color='#ffd700';
     $('btn-calib-ok').disabled=true;$('btn-calib-ok').style.opacity='0.5';
@@ -821,8 +772,7 @@ gameCanvas.addEventListener('touchend',()=>{pinchDist0=0;pinchItemType=null;drag
 // ===== 校准按钮 =====
 $('btn-calib-ok').addEventListener('click',()=>{
   calibActive=false;$('calib-screen').classList.add('hidden');
-  gameState=STATE.SELECT;selectScreen.classList.remove('hidden');$('bg-selector').classList.remove('hidden');renderBgSelector();
-  if(!calibDetected){
+  gameState=STATE.SELECT;selectScreen.classList.remove('hidden');  if(!calibDetected){
     const dx=parseInt($('calib-x-val').textContent)||0;
     const dy=parseInt($('calib-y-val').textContent)||0;
     calibX=dx;calibY=dy;
@@ -831,7 +781,7 @@ $('btn-calib-ok').addEventListener('click',()=>{
 $('btn-calib-skip').addEventListener('click',()=>{
   calibActive=false;calibX=0;calibY=0;
   $('calib-screen').classList.add('hidden');
-  gameState=STATE.SELECT;selectScreen.classList.remove('hidden');$('bg-selector').classList.remove('hidden');renderBgSelector()
+  gameState=STATE.SELECT;selectScreen.classList.remove('hidden');renderBgSelector()
 });
 
 window.addEventListener('resize',()=>resizeCanvas());
